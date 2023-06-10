@@ -1,11 +1,32 @@
 {
-  "name": "mysql-native-wrapper",
-  "version": "1.0.0",
-  "description": "native wrapper for mysql",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC"
+    "name": "mysql-native-wrapper",
+    "description": "native wrapper for mysql",
+    "keywords": [
+        "mysql",
+        "native",
+        "wrapper"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/nonacc/mysql-native-wrapper"
+    },
+    "version": "0.0.7",
+    "main": "dist/index.js",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup src/index.ts --format cjs,esm --dts",
+        "lint": "tsc"
+    },
+    "author": "nonacc",
+    "license": "MIT",
+    "devDependencies": {
+        "@types/node": "^18.15.11",
+        "mysql2": "^3.2.0",
+        "tsup": "^6.7.0",
+        "typescript": "^5.0.4"
+    }
 }
