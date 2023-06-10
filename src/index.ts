@@ -321,12 +321,53 @@ class MySqlShell {
         }
     }
 
-    public async delete(table_name: string, where:{[key:string]:any}) : Promise<IDeleteRes> {
+    // public async delete(table_name: string, where:{[key:string]:any}) : Promise<IDeleteRes> {
+
+    //     let connection: any;
+    
+    //     try {
+
+    //         connection = await this.connection();
+    //         if (!connection) throw new Error('Failed to get connection');
+    
+    //         let whereClause = '';
+    //         let whereValues: any[] = [];
+    //         if (where) {
+    //             const whereParts = Object.entries(where).map(([key, value]) => {
+    //                 whereValues.push(value);
+    //                 return `${key} = ?`;
+    //             });
+    //             whereClause = 'WHERE ' + whereParts.join(' AND ');
+    //         }
+    
+    //         const query = `DELETE FROM ${this.database_name}.${table_name} ${whereClause};`;
+    //         const queryParams = [...whereValues];
+    
+    //         const res = await connection.query(query, queryParams);
+    //         if (res.serverStatus != 2 || res.affectedRows <= 0) {
+    //             this.log_error(`Failed to execute delete query into ${table_name}`, [res.message]);
+    //             return { success: false, affectedRows: res.affectedRows, message: res.message };
+    //         }
+    
+    //         return { success: true, affectedRows: res.affectedRows };
+    
+    //     } catch (error:any) {
+
+    //         const message = error && error.message ? error.message : 'Failed to execute delete query';
+    //         this.log_error(message);
+    //         return { success: false, message };
+
+    //     } finally {
+
+    //         connection && await connection.release();
+    //     }
+    // }
+
+    public async delete(table_name: string, where:{[key:string]:any}, whereIn:{[key:string]:any[]} = {}) : Promise<IDeleteRes> {
 
         let connection: any;
     
         try {
-
             connection = await this.connection();
             if (!connection) throw new Error('Failed to get connection');
     
@@ -338,6 +379,16 @@ class MySqlShell {
                     return `${key} = ?`;
                 });
                 whereClause = 'WHERE ' + whereParts.join(' AND ');
+            }
+    
+            const whereInParts = Object.entries(whereIn).map(([key, values]) => {
+                whereValues.push(...values);
+                const placeholders = values.map(() => '?').join(', ');
+                return `${key} IN (${placeholders})`;
+            });
+            
+            if (whereInParts.length) {
+                whereClause = whereClause ? whereClause + ' AND ' + whereInParts.join(' AND ') : 'WHERE ' + whereInParts.join(' AND ');
             }
     
             const query = `DELETE FROM ${this.database_name}.${table_name} ${whereClause};`;
@@ -352,16 +403,17 @@ class MySqlShell {
             return { success: true, affectedRows: res.affectedRows };
     
         } catch (error:any) {
-
+    
             const message = error && error.message ? error.message : 'Failed to execute delete query';
             this.log_error(message);
             return { success: false, message };
-
+    
         } finally {
-
+    
             connection && await connection.release();
         }
     }
+    
 
     public async delete_many(table_name: string, wheres: {[key:string]:any}[], abortOnFail:boolean=false) : Promise<IDeleteRes> {
 

@@ -10,7 +10,7 @@
         "type": "git",
         "url": "https://github.com/nonacc/mysql-native-wrapper"
     },
-    "version": "0.0.7",
+    "version": "0.0.9",
     "main": "dist/index.js",
     "module": "dist/index.mjs",
     "types": "dist/index.d.ts",
