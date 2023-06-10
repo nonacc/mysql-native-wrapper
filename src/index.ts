@@ -66,6 +66,8 @@ class MySqlShell {
         });
     };
 
+    //  -------
+
     public async query<T>(query: string, args?: any[]): Promise<T[] | undefined> {
 
         let connection: any;
@@ -108,9 +110,49 @@ class MySqlShell {
         }
     }
 
+    //  -------
+
+    public async select<T>(table_name: string, columns: string = '*', where?: { [key: string]: any }, limit?: number, offset?: number) : Promise<T[] | null> {
+
+        let connection: any;
+
+        try {
+
+            connection = await this.connection();
+            if (!connection) throw new Error('Failed to get connection');
+
+            let whereClause = '';
+            let whereValues: any[] = [];
+            if (where) {
+                const whereParts = Object.entries(where).map(([key, value], i) => {
+                    whereValues.push(value);
+                    return `${key} = ?`;
+                });
+                whereClause = 'WHERE ' + whereParts.join(' AND ');
+            }
+
+            const query = `SELECT ${columns} FROM ${this.database_name}.${table_name} ${whereClause} ${limit ? 'LIMIT ?' : ''} ${offset ? 'OFFSET ?' : ''}`.trim() + ';';
+            const values = [...whereValues, limit, offset].filter(x => x !== undefined);
+
+            return await connection.query(query, values);
+
+        } catch (error: any) {
+
+            this.log_error(error && error.message ? error.message : 'Failed to execute select query');
+            return null;
+
+        } finally {
+
+            connection && await connection.release();
+        }
+    }
+
+    //  -------
+
     public async insert(table_name: string, params: { key: string, value: any }[]): Promise<IInsertRes> {
 
         let connection: any;
+        let res: any;
     
         try {
 
@@ -123,20 +165,16 @@ class MySqlShell {
     
             const query = `INSERT INTO ${this.database_name}.${table_name} (${columns}) VALUES (${placeholders});`;
     
-            const res = await connection.query(query, values);
-            if (res.serverStatus != 2) {
-                this.log_error(`Failed to execute insert query into ${table_name}`, [res.message])
-                return { success: false, message: res.message };
-            }
+            res = await connection.query(query, values);
     
             const new_record_id = res.insertId as number;
             return { success: true, new_record_id };
     
         } catch (error:any) {
 
-            const message = error && error.message ? error.message : 'Failed to execute insert query';
-            this.log_error(message);
-            return { success: false, message};
+            const errorMessage = error && error.message ? error.message : 'Failed to execute insert query';
+            this.log_error(errorMessage);
+            return { success: false, errorMessage, ...res };
 
         } finally {
 
@@ -147,6 +185,7 @@ class MySqlShell {
     public async insert_many(table_name: string, columns_names: string[], values_arr: any[][]): Promise<IInsertRes> {
 
         let connection: any;
+        let res: any;
 
         try {
 
@@ -165,20 +204,15 @@ class MySqlShell {
 
             const query = `INSERT INTO ${this.database_name}.${table_name} (${columns}) VALUES ${placeholders};`
 
-            const res = await connection.query(query, flattenedValues);
-
-            if (res.serverStatus != 2) {
-                this.log_error(`Failed to execute insert query into ${table_name}`, [res.message])
-                return { success: false, message: res.message };
-            }
+            res = await connection.query(query, flattenedValues);
 
             return { success: true };
 
         } catch (error: any) {
 
-            const message = error && error.message ? error.message : 'Failed to execute insert query';
-            this.log_error(message);
-            return { success: false, message };
+            const errorMessage = error && error.message ? error.message : 'Failed to execute insert query';
+            this.log_error(errorMessage);
+            return { success: false, errorMessage, ...res };
 
         } finally {
 
@@ -186,9 +220,12 @@ class MySqlShell {
         }
     }
 
+    //  -------
+
     public async update(table_name: string, params: { key: string, value: any }[], where: { [key: string]: any }) : Promise<IUpdateRes> {
 
         let connection: any;
+        let res: any;
 
         try {
 
@@ -211,19 +248,15 @@ class MySqlShell {
             const query = `UPDATE ${this.database_name}.${table_name} SET ${set} ${whereClause};`;
             const queryParams = [...values, ...whereValues];
 
-            const res = await connection.query(query, queryParams);
-            if (res.serverStatus != 2) {
-                this.log_error(`Failed to execute update query into ${table_name}`, [res.message]);
-                return { success: false, affectedRows: res.affectedRows, message: res.message };
-            }
+            res = await connection.query(query, queryParams);
 
             return { success: true, affectedRows: res.affectedRows };
 
         } catch (error:any) {
 
-            const message = error && error.message ? error.message : 'Failed to execute update query';
-            this.log_error(message);
-            return { success: false, message };
+            const errorMessage = error && error.message ? error.message : 'Failed to execute update query';
+            this.log_error(errorMessage);
+            return { success: false, errorMessage, ...res };
 
         } finally {
 
@@ -234,6 +267,7 @@ class MySqlShell {
     public async update_many(table_name: string, params: {key: string, value: any, where:{[key:string]:any}}[], abortOnFail:boolean=false) : Promise<IUpdateRes> {
 
         let connection: any;
+        let res: any;
     
         try {
 
@@ -259,12 +293,7 @@ class MySqlShell {
                 const query = `UPDATE ${this.database_name}.${table_name} SET ${set} ${whereClause};`;
                 const queryParams = [row.value, ...whereValues];
     
-                const res = await connection.query(query, queryParams);
-                if (!res || res.serverStatus != 2) {
-
-                    this.log_error(`Failed to execute update_many into ${table_name}`, [res.message]);
-                    if (abortOnFail) return { success: false, affectedRows, message:res.message };
-                }
+                res = await connection.query(query, queryParams);
 
                 affectedRows += (res && res.affectedRows ? res.affectedRows : 0);
             }
@@ -273,9 +302,9 @@ class MySqlShell {
     
         } catch (error:any) {
 
-            const message = error && error.message ? error.message : 'Failed to execute update_many query';
-            this.log_error(message)
-            return { success: false, message };
+            const errorMessage = error && error.message ? error.message : 'Failed to execute update_many query';
+            this.log_error(errorMessage)
+            return { success: false, errorMessage, ...res };
 
         } finally {
 
@@ -283,47 +312,12 @@ class MySqlShell {
         }
     }
 
-    public async select<T>(table_name: string, columns: string = '*', where?: { [key: string]: any }, limit?: number, offset?: number) : Promise<T[] | null> {
-
-        let connection: any;
-
-        try {
-
-            connection = await this.connection();
-            if (!connection) throw new Error('Failed to get connection');
-
-            let whereClause = '';
-            let whereValues: any[] = [];
-            if (where) {
-                const whereParts = Object.entries(where).map(([key, value], i) => {
-                    whereValues.push(value);
-                    return `${key} = ?`;
-                });
-                whereClause = 'WHERE ' + whereParts.join(' AND ');
-            }
-
-            const query = `SELECT ${columns} FROM ${this.database_name}.${table_name} ${whereClause} ${limit ? 'LIMIT ?' : ''} ${offset ? 'OFFSET ?' : ''}`.trim() + ';';
-            const values = [...whereValues, limit, offset].filter(x => x !== undefined);
-
-            const res = await connection.query(query, values);
-            if (res.serverStatus != 2) this.log_error(`Failed to execute select query into ${table_name}`, [res.message]);
-
-            return !res || res.length <= 0 ? null : res;
-
-        } catch (error: any) {
-
-            this.log_error(error && error.message ? error.message : 'Failed to execute select query');
-            return null;
-
-        } finally {
-
-            connection && await connection.release();
-        }
-    }
+    //  -------
 
     public async delete(table_name: string, where:{[key:string]:any}, whereIn:{[key:string]:any[]} = {}) : Promise<IDeleteRes> {
 
         let connection: any;
+        let res: any;
     
         try {
             connection = await this.connection();
@@ -352,19 +346,15 @@ class MySqlShell {
             const query = `DELETE FROM ${this.database_name}.${table_name} ${whereClause};`;
             const queryParams = [...whereValues];
     
-            const res = await connection.query(query, queryParams);
-            if (res.serverStatus != 2) {
-                this.log_error(`Failed to execute delete query into ${table_name}`, [res.message]);
-                return { success: false, affectedRows: res.affectedRows, message: res.message };
-            }
+            res = await connection.query(query, queryParams);
     
-            return { success: true, affectedRows: res.affectedRows };
+            return { success: true, ...res };
     
         } catch (error:any) {
     
-            const message = error && error.message ? error.message : 'Failed to execute delete query';
-            this.log_error(message);
-            return { success: false, message };
+            const errorMessage = error && error.message ? error.message : 'Failed to execute delete query';
+            this.log_error(errorMessage);
+            return { success: false, errorMessage, ...res };
     
         } finally {
     
@@ -372,10 +362,10 @@ class MySqlShell {
         }
     }
     
-
-    public async delete_many(table_name: string, wheres: {[key:string]:any}[], abortOnFail:boolean=false) : Promise<IDeleteRes> {
+    public async delete_many(table_name: string, wheres: {[key:string]:any}[]) : Promise<IDeleteRes> {
 
         let connection: any;
+        let res: any;
     
         try {
 
@@ -399,12 +389,7 @@ class MySqlShell {
                 const query = `DELETE FROM ${this.database_name}.${table_name} ${whereClause};`;
                 const queryParams = [...whereValues];
     
-                const res = await connection.query(query, queryParams);
-                if (res.serverStatus != 2) {
-
-                    this.log_error(`Failed to execute delete_many into ${table_name}`, [res.message]);
-                    if (abortOnFail) return { success: false, affectedRows, message:res.message };
-                }
+                res = await connection.query(query, queryParams);
 
                 affectedRows += (res && res.affectedRows ? res.affectedRows : 0);
             }
@@ -413,9 +398,9 @@ class MySqlShell {
     
         } catch (error:any) {
 
-            const message = error && error.message ? error.message : 'Failed to execute delete_many query';
-            this.log_error(message)
-            return { success: false, message };
+            const errorMessage = error && error.message ? error.message : 'Failed to execute delete_many query';
+            this.log_error(errorMessage)
+            return { success: false, errorMessage, ...res };
 
         } finally {
 
@@ -423,10 +408,11 @@ class MySqlShell {
         }
     }
 
+    //  -------
+
     private log_error(message:string, args?:any) {
         this.logger && this.logger.error(message, [this.database_name, ...args]);
     }
-
 }
 
 interface ILogger {
@@ -447,6 +433,7 @@ interface IInsertRes {
 
     success: boolean
     message?: string
+    errorMessage?: string
     new_record_id?: number
 }
 
@@ -454,6 +441,7 @@ interface IUpdateRes {
 
     success: boolean
     message? : string
+    errorMessage?: string
     affectedRows?: number
 }
 
@@ -461,6 +449,7 @@ interface IDeleteRes {
 
     success: boolean
     message? : string
+    errorMessage?: string
     affectedRows?: number
 
     // fieldCount: number
