@@ -321,48 +321,6 @@ class MySqlShell {
         }
     }
 
-    // public async delete(table_name: string, where:{[key:string]:any}) : Promise<IDeleteRes> {
-
-    //     let connection: any;
-    
-    //     try {
-
-    //         connection = await this.connection();
-    //         if (!connection) throw new Error('Failed to get connection');
-    
-    //         let whereClause = '';
-    //         let whereValues: any[] = [];
-    //         if (where) {
-    //             const whereParts = Object.entries(where).map(([key, value]) => {
-    //                 whereValues.push(value);
-    //                 return `${key} = ?`;
-    //             });
-    //             whereClause = 'WHERE ' + whereParts.join(' AND ');
-    //         }
-    
-    //         const query = `DELETE FROM ${this.database_name}.${table_name} ${whereClause};`;
-    //         const queryParams = [...whereValues];
-    
-    //         const res = await connection.query(query, queryParams);
-    //         if (res.serverStatus != 2 || res.affectedRows <= 0) {
-    //             this.log_error(`Failed to execute delete query into ${table_name}`, [res.message]);
-    //             return { success: false, affectedRows: res.affectedRows, message: res.message };
-    //         }
-    
-    //         return { success: true, affectedRows: res.affectedRows };
-    
-    //     } catch (error:any) {
-
-    //         const message = error && error.message ? error.message : 'Failed to execute delete query';
-    //         this.log_error(message);
-    //         return { success: false, message };
-
-    //     } finally {
-
-    //         connection && await connection.release();
-    //     }
-    // }
-
     public async delete(table_name: string, where:{[key:string]:any}, whereIn:{[key:string]:any[]} = {}) : Promise<IDeleteRes> {
 
         let connection: any;
@@ -395,7 +353,7 @@ class MySqlShell {
             const queryParams = [...whereValues];
     
             const res = await connection.query(query, queryParams);
-            if (res.serverStatus != 2 || res.affectedRows <= 0) {
+            if (res.serverStatus != 2) {
                 this.log_error(`Failed to execute delete query into ${table_name}`, [res.message]);
                 return { success: false, affectedRows: res.affectedRows, message: res.message };
             }
@@ -442,7 +400,7 @@ class MySqlShell {
                 const queryParams = [...whereValues];
     
                 const res = await connection.query(query, queryParams);
-                if (res.serverStatus != 2 || res.affectedRows <= 0) {
+                if (res.serverStatus != 2) {
 
                     this.log_error(`Failed to execute delete_many into ${table_name}`, [res.message]);
                     if (abortOnFail) return { success: false, affectedRows, message:res.message };
